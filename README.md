@@ -91,7 +91,7 @@ Compose opens as a modal over the whole layout.
   (never double-prefixed), and the original quoted in a blockquote. Messages are
   listed flat; there is no conversation threading.
 - **Read/unread**: opening a message marks it read; "Mark unread" reverses it.
-  This state lives in the backend's SQLite database, not in Resend.
+  This state lives in the backend's MongoDB, not in Resend.
 - **Drafts** are saved explicitly with **Save draft** — there is no autosave.
   Sending a draft removes it, since the mail then appears under Sent.
 - **Pagination** uses Resend's cursor scheme via "Load more"; there is no search.
