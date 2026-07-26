@@ -9,6 +9,9 @@
     "lint": "oxlint",
     "preview": "vite preview"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
     "@tiptap/extensions": "^3.29.0",

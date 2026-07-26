@@ -32,6 +32,38 @@ npm run preview   # serve the build locally
 npm run lint      # oxlint
 ```
 
+## Deploying to Vercel
+
+`vercel.json` pins the Vite build and, importantly, rewrites `/api/*` to the
+backend — the production equivalent of the dev proxy.
+
+1. **Edit `vercel.json`** and replace the placeholder host with your Railway
+   domain:
+
+   ```json
+   { "source": "/api/:path*", "destination": "https://your-backend.up.railway.app/api/:path*" }
+   ```
+
+2. **Import the repo** on Vercel. Framework, build command and output directory
+   all come from `vercel.json`, so there is nothing to configure in the UI.
+3. Deploy. No environment variables are needed.
+
+That is the whole setup. Because the browser only ever talks to the Vercel
+domain, the session cookie stays **first-party** and no CORS is involved — which
+also means preview deployments work without registering each URL.
+
+### The alternative, and why it isn't the default
+
+You can skip the rewrite and have the browser call Railway directly by setting
+`VITE_API_BASE_URL=https://your-backend.up.railway.app` in Vercel's environment
+variables. The backend then needs `COOKIE_SAMESITE=none` and a matching
+`CORS_ORIGIN`.
+
+The catch is that this makes the session cookie a third-party cookie. Safari
+blocks those by default and Chrome and Firefox can be configured to, so affected
+users simply cannot stay signed in. Use the rewrite unless you have a reason not
+to.
+
 ## Layout
 
 ```

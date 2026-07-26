@@ -137,6 +137,16 @@ export default function MailboxPage() {
     return () => window.clearInterval(timer);
   }, [loadFolder]);
 
+  // A draft deleted from inside the composer (or gone for any other reason)
+  // must not stay open in the reading pane with dead action buttons.
+  useEffect(() => {
+    if (folder !== 'drafts' || !selectedId || store.drafts.loading) return;
+    if (!store.drafts.messages.some((draft) => draft.id === selectedId)) {
+      setSelectedId(null);
+      setSelected(null);
+    }
+  }, [folder, selectedId, store.drafts.messages, store.drafts.loading]);
+
   const openMessage = useCallback(
     async (message) => {
       setSelectedId(message.id);
