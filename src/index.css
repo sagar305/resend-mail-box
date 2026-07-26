@@ -1,0 +1,77 @@
+@import 'tailwindcss';
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-100 text-slate-900 antialiased;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/*
+ * Styling for received/sent HTML bodies. Mail HTML arrives with no classes of
+ * its own, so element selectors are the only way to make it readable — Tailwind's
+ * preflight has already reset these elements to unstyled.
+ */
+.mail-body {
+  @apply text-[15px] leading-relaxed text-slate-800;
+  overflow-wrap: break-word;
+}
+.mail-body p {
+  @apply my-3;
+}
+.mail-body a {
+  @apply text-blue-600 underline;
+}
+.mail-body h1 {
+  @apply my-4 text-2xl font-semibold;
+}
+.mail-body h2 {
+  @apply my-3 text-xl font-semibold;
+}
+.mail-body h3 {
+  @apply my-3 text-lg font-semibold;
+}
+.mail-body ul {
+  @apply my-3 list-disc pl-6;
+}
+.mail-body ol {
+  @apply my-3 list-decimal pl-6;
+}
+.mail-body li {
+  @apply my-1;
+}
+.mail-body blockquote {
+  @apply my-3 border-l-2 border-slate-300 pl-4 text-slate-600;
+}
+.mail-body pre {
+  @apply my-3 overflow-x-auto rounded-lg bg-slate-100 p-3 font-mono text-sm;
+}
+.mail-body code {
+  @apply rounded bg-slate-100 px-1 py-0.5 font-mono text-[13px];
+}
+.mail-body hr {
+  @apply my-4 border-slate-200;
+}
+.mail-body img {
+  @apply my-2 h-auto max-w-full;
+}
+.mail-body table {
+  @apply my-3 w-full border-collapse text-sm;
+}
+.mail-body td,
+.mail-body th {
+  @apply border border-slate-200 px-2 py-1 text-left;
+}
+
+/* TipTap's editable surface reuses .mail-body, so it only needs caret behaviour. */
+.ProseMirror {
+  @apply min-h-[220px] outline-none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply pointer-events-none float-left h-0 text-slate-400;
+  content: attr(data-placeholder);
+}
