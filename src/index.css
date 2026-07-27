@@ -6,9 +6,42 @@ body,
   height: 100%;
 }
 
+/* dvh tracks Safari's collapsing URL bar, so the layout stops being taller than
+   the visible area on iOS. Kept as a progressive enhancement over height:100%. */
+@supports (height: 100dvh) {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+  }
+}
+
 body {
   @apply bg-slate-100 text-slate-900 antialiased;
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  /* Stop the whole page rubber-banding while inner panes scroll. */
+  overscroll-behavior-y: none;
+}
+
+/* iOS zooms the viewport when focusing an input whose text is under 16px, and
+   never zooms back out. Sizing the form controls at 16px on small screens is the
+   standard way to prevent that. */
+@media (max-width: 639px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Respects the iPhone home indicator / notch when the page sits flush. */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* Momentum scrolling inside panes rather than the document. */
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
 }
 
 /*

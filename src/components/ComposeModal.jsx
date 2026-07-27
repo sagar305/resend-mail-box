@@ -94,8 +94,9 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
-      <div className="flex h-full max-h-[46rem] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+    // Full-bleed sheet on a phone; a centred card once there is room for one.
+    <div className="fixed inset-0 z-50 flex items-stretch justify-center bg-slate-900/40 sm:items-center sm:p-4">
+      <div className="flex h-full w-full flex-col overflow-hidden bg-white sm:max-h-[46rem] sm:max-w-3xl sm:rounded-xl sm:shadow-2xl">
         <header className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
           <h2 className="text-sm font-semibold text-slate-900">
             {draftId ? 'Edit draft' : 'New message'}
@@ -104,7 +105,7 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-900"
+            className="-mr-2 rounded p-2.5 text-slate-500 hover:bg-slate-200 hover:text-slate-900"
           >
             <CloseIcon className="h-4 w-4" />
           </button>
@@ -163,7 +164,7 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
           />
         </Field>
 
-        <div className="flex min-h-0 flex-1 flex-col p-4">
+        <div className="flex min-h-0 flex-1 flex-col p-3 sm:p-4">
           <RichTextEditor value={html} onChange={setHtml} />
         </div>
 
@@ -171,12 +172,13 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
           <p className="border-t border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>
         )}
 
-        <footer className="flex items-center gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
+        {/* pb-safe keeps the buttons clear of the iPhone home indicator. */}
+        <footer className="flex items-center gap-2 border-t border-slate-200 bg-slate-50 px-3 py-3 pb-safe sm:px-4">
           <button
             type="button"
             onClick={handleSend}
             disabled={busy !== null}
-            className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+            className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
           >
             <SentIcon className="h-4 w-4" />
             {busy === 'send' ? 'Sending…' : 'Send'}
@@ -185,22 +187,23 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
             type="button"
             onClick={handleSaveDraft}
             disabled={busy !== null}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
+            className="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50 sm:px-4"
           >
             {busy === 'draft' ? 'Saving…' : 'Save draft'}
           </button>
 
-          {notice && <span className="text-xs text-slate-500">{notice}</span>}
+          {notice && <span className="hidden text-xs text-slate-500 sm:inline">{notice}</span>}
 
           <button
             type="button"
             onClick={handleDiscard}
             disabled={busy !== null}
+            aria-label={draftId ? 'Delete draft' : 'Discard'}
             title={draftId ? 'Delete draft' : 'Discard'}
-            className="ml-auto inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-500 transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+            className="ml-auto inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-slate-500 transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
           >
             <TrashIcon className="h-4 w-4" />
-            {draftId ? 'Delete draft' : 'Discard'}
+            <span className="hidden sm:inline">{draftId ? 'Delete draft' : 'Discard'}</span>
           </button>
         </footer>
       </div>

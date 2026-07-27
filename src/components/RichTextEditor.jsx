@@ -24,7 +24,7 @@ function ToolbarButton({ active, disabled, onClick, label, children }) {
       disabled={disabled}
       onMouseDown={(event) => event.preventDefault()} // keep the editor selection
       onClick={onClick}
-      className={`flex h-8 min-w-8 items-center justify-center rounded px-2 text-sm transition-colors disabled:opacity-40 ${
+      className={`flex h-9 min-w-9 shrink-0 items-center justify-center rounded px-2 text-sm transition-colors disabled:opacity-40 sm:h-8 sm:min-w-8 ${
         active ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-200'
       }`}
     >
@@ -79,7 +79,9 @@ export default function RichTextEditor({ value, onChange, placeholder = 'Write y
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
-      <div className="flex flex-wrap items-center gap-0.5 border-b border-slate-200 bg-slate-50 px-2 py-1.5">
+      {/* Scrolls sideways on a narrow screen rather than stacking into rows and
+          eating the writing area. */}
+      <div className="flex items-center gap-0.5 overflow-x-auto border-b border-slate-200 bg-slate-50 px-2 py-1.5 sm:flex-wrap sm:overflow-x-visible">
         <ToolbarButton
           label="Bold"
           active={editor.isActive('bold')}

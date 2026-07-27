@@ -5,7 +5,7 @@ import ComposeModal from '../components/ComposeModal.jsx';
 import MessageList from '../components/MessageList.jsx';
 import MessageView from '../components/MessageView.jsx';
 import Sidebar from '../components/Sidebar.jsx';
-import { LogoutIcon } from '../components/Icons.jsx';
+import { LogoutIcon, MenuIcon, PencilIcon } from '../components/Icons.jsx';
 import { extractEmail, prefixSubject, quoteMessage } from '../lib/format.js';
 
 const PAGE_SIZE = 20;
@@ -47,6 +47,7 @@ export default function MailboxPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
   const [compose, setCompose] = useState(null); // null | { …prefill }
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const visitedRef = useRef(new Set());
 
@@ -186,11 +187,16 @@ export default function MailboxPage() {
     [folder, handleFailure],
   );
 
-  const changeFolder = (next) => {
-    setFolder(next);
+  /** Also what the phone's back button calls to return to the list. */
+  const clearSelection = () => {
     setSelectedId(null);
     setSelected(null);
     setDetailError(null);
+  };
+
+  const changeFolder = (next) => {
+    setFolder(next);
+    clearSelection();
   };
 
   const handleMarkUnread = async (message) => {
@@ -251,34 +257,80 @@ export default function MailboxPage() {
   const active = store[folder];
   const unreadCount = store.inbox.messages.filter((message) => message.read === false).length;
 
+  // Below md there is only room for one pane, so opening a message replaces the
+  // list and the reading pane gets a back button. From md up both are visible.
+  const readingOnPhone = Boolean(selectedId || detailLoading || detailError);
+
+  const sidebarProps = {
+    folder,
+    onCompose: () => {
+      setCompose({});
+      setDrawerOpen(false);
+    },
+    unreadCount,
+    draftCount: store.drafts.messages.length,
+  };
+
   return (
     <div className="flex h-full flex-col">
-      <header className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 py-2.5">
-        <div className="flex items-baseline gap-3">
+      <header className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-2 py-2 sm:px-4 sm:py-2.5">
+        <div className="flex min-w-0 items-center gap-1 sm:gap-3">
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            aria-label="Open folders"
+            className="rounded-lg p-2.5 text-slate-600 active:bg-slate-100 lg:hidden"
+          >
+            <MenuIcon className="h-5 w-5" />
+          </button>
           <span className="text-sm font-semibold text-slate-900">Mailbox</span>
-          <span className="text-xs text-slate-400">{mailboxAddress}</span>
+          <span className="hidden min-w-0 truncate text-xs text-slate-400 sm:block">
+            {mailboxAddress}
+          </span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-500">{user?.username}</span>
+        <div className="flex shrink-0 items-center gap-1 sm:gap-3">
+          <span className="hidden text-xs text-slate-500 sm:block">{user?.username}</span>
           <button
             type="button"
             onClick={logout}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            aria-label="Sign out"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900"
           >
             <LogoutIcon className="h-4 w-4" />
-            Sign out
+            <span className="hidden sm:inline">Sign out</span>
           </button>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
+        {/* Static column on desktop. */}
         <Sidebar
-          folder={folder}
+          {...sidebarProps}
           onSelectFolder={changeFolder}
-          onCompose={() => setCompose({})}
-          unreadCount={unreadCount}
-          draftCount={store.drafts.messages.length}
+          className="hidden w-56 shrink-0 border-r border-slate-200 lg:flex"
         />
+
+        {/* Slide-in drawer below lg — an iPad in portrait gets this too, which
+            leaves the full width for the list and the message. */}
+        {drawerOpen && (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            <button
+              type="button"
+              aria-label="Close folders"
+              onClick={() => setDrawerOpen(false)}
+              className="absolute inset-0 bg-slate-900/40"
+            />
+            <Sidebar
+              {...sidebarProps}
+              onSelectFolder={(next) => {
+                changeFolder(next);
+                setDrawerOpen(false);
+              }}
+              onClose={() => setDrawerOpen(false)}
+              className="absolute top-0 left-0 h-full w-64 max-w-[80%] shadow-xl"
+            />
+          </div>
+        )}
 
         <MessageList
           folder={folder}
@@ -291,6 +343,7 @@ export default function MailboxPage() {
           onLoadMore={() => loadMore(folder)}
           loadingMore={active.loadingMore}
           onRefresh={() => loadFolder(folder)}
+          className={`${readingOnPhone ? 'hidden md:flex' : 'flex w-full'}`}
         />
 
         <MessageView
@@ -303,8 +356,24 @@ export default function MailboxPage() {
           onMarkUnread={handleMarkUnread}
           onEditDraft={(draft) => setCompose(draft)}
           onDeleteDraft={handleDeleteDraft}
+          onBack={clearSelection}
+          className={`${readingOnPhone ? 'flex' : 'hidden md:flex'}`}
         />
       </div>
+
+      {/* Below lg the folder rail is a drawer, so Compose would be hidden behind
+          it. Compose is the primary action, so it gets a floating button. */}
+      {!compose && !drawerOpen && (
+        <button
+          type="button"
+          onClick={() => setCompose({})}
+          aria-label="Compose"
+          className="fixed right-4 bottom-4 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg transition-transform active:scale-95 lg:hidden"
+          style={{ bottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        >
+          <PencilIcon className="h-5 w-5" />
+        </button>
+      )}
 
       {compose && (
         <ComposeModal

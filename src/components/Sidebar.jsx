@@ -1,4 +1,4 @@
-import { DraftIcon, InboxIcon, PencilIcon, SentIcon } from './Icons.jsx';
+import { CloseIcon, DraftIcon, InboxIcon, PencilIcon, SentIcon } from './Icons.jsx';
 
 const FOLDERS = [
   { key: 'inbox', label: 'Inbox', Icon: InboxIcon },
@@ -6,7 +6,19 @@ const FOLDERS = [
   { key: 'drafts', label: 'Drafts', Icon: DraftIcon },
 ];
 
-export default function Sidebar({ folder, onSelectFolder, onCompose, unreadCount, draftCount }) {
+/**
+ * Rendered twice: as a static column from `lg` up, and inside the slide-in
+ * drawer below that. `className` is how the caller switches between the two.
+ */
+export default function Sidebar({
+  folder,
+  onSelectFolder,
+  onCompose,
+  unreadCount,
+  draftCount,
+  className = '',
+  onClose,
+}) {
   const badgeFor = (key) => {
     if (key === 'inbox') return unreadCount > 0 ? unreadCount : null;
     if (key === 'drafts') return draftCount > 0 ? draftCount : null;
@@ -14,11 +26,27 @@ export default function Sidebar({ folder, onSelectFolder, onCompose, unreadCount
   };
 
   return (
-    <nav className="flex w-56 shrink-0 flex-col gap-1 border-r border-slate-200 bg-white p-3">
+    <nav className={`flex flex-col gap-1 bg-white p-3 ${className}`}>
+      {/* Only rendered in the drawer. Tapping the scrim also closes it, but most
+          of the scrim sits behind the drawer, so an explicit control is clearer. */}
+      {onClose && (
+        <div className="mb-1 flex items-center justify-between pl-1">
+          <span className="text-sm font-semibold text-slate-900">Folders</span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close folders"
+            className="-mr-1 rounded-lg p-2.5 text-slate-500 active:bg-slate-100"
+          >
+            <CloseIcon className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <button
         type="button"
         onClick={onCompose}
-        className="mb-3 inline-flex items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+        className="mb-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
       >
         <PencilIcon className="h-4 w-4" />
         Compose
@@ -33,7 +61,8 @@ export default function Sidebar({ folder, onSelectFolder, onCompose, unreadCount
             type="button"
             onClick={() => onSelectFolder(key)}
             aria-current={active ? 'page' : undefined}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+            // min-h-11 keeps every row at a comfortable touch target size.
+            className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors ${
               active ? 'bg-slate-100 font-semibold text-slate-900' : 'text-slate-600 hover:bg-slate-50'
             }`}
           >
