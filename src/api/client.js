@@ -1,6 +1,26 @@
 // In dev this stays empty and Vite proxies /api to the backend. For a split
 // deploy set VITE_API_BASE_URL to the backend origin.
+//
+// Note this is inlined at BUILD time. A same-origin /api rewrite existing on the
+// host does not mean the app uses it — if this was set when the bundle was built,
+// every request goes cross-origin regardless of any rewrite.
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
+export const API_BASE_URL = BASE_URL;
+
+/**
+ * True when requests leave the page's own origin, which makes the session a
+ * third-party cookie. WebKit — every browser on iOS, including Chrome — blocks
+ * those by default, so it is worth being able to state this plainly.
+ */
+export function isCrossOrigin() {
+  if (!BASE_URL) return false;
+  try {
+    return new URL(BASE_URL, window.location.href).origin !== window.location.origin;
+  } catch {
+    return false;
+  }
+}
 
 export class ApiError extends Error {
   constructor(status, message, code) {
