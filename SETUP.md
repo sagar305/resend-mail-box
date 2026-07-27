@@ -331,8 +331,9 @@ MongoDB, so the service is stateless and survives redeploys.
 
 ### 7.1 Put your Railway URL in `vercel.json`
 
-This is **the only manual code edit in either repo.** Open `vercel.json` and
-replace the placeholder host on line 9:
+This is **the only manual code edit in either repo.** `vercel.json` already
+points at this project's own Railway service; change the host on line 9 only if
+you are deploying your own backend:
 
 ```json
 {
@@ -357,6 +358,14 @@ environment variables into rewrite destinations.** A backend URL is not a secret
 so committing it is fine.
 
 Commit and push.
+
+> **Do not also set `VITE_API_BASE_URL`.** It is inlined at build time and takes
+> precedence over this rewrite, so setting both means the rewrite is ignored and
+> every request goes cross-origin — which makes the session a third-party cookie
+> that iOS blocks outright. Use one or the other, and the rewrite is the one that
+> works everywhere. If you have both, fix this file first, confirm
+> `curl https://your-app.vercel.app/api/health` returns `{"ok":true}`, and only
+> then remove the variable.
 
 ### 7.2 Import on Vercel
 
@@ -562,10 +571,19 @@ the session cookie stopped being accepted. Two causes:
    Cross-Site Tracking* on by default and blocks those outright — which is why it
    works on desktop Chrome and fails on an iPad.
 
-   **Check:** open `https://your-app.vercel.app/api/health` on the device. This
-   works *because* of the rewrite — Vercel receives `/api` on its own domain and
-   forwards it to Railway server-side. `{"ok":true}` means the rewrite is live and
-   cookies are first-party. A `404` means it isn't, and that's your bug.
+   **The rewrite existing is NOT the same as the app using it.**
+   `VITE_API_BASE_URL` is inlined into the bundle at *build* time, so
+   `curl https://your-app.vercel.app/api/health` can return `{"ok":true}` — proving
+   the rewrite works — while the app still calls Railway directly. Check both:
+
+   1. **Vercel → Settings → Environment Variables.** If `VITE_API_BASE_URL` is
+      there, that is the bug. Delete it and redeploy.
+   2. **DevTools → Network**, then sign in. Look at the request URL for
+      `auth/login`. If it points at `*.up.railway.app` instead of your own domain,
+      the app is going cross-origin.
+
+   As of the cookie check added to login, the app now detects this itself and says
+   so on screen rather than bouncing you back to an empty login form.
 
    **Fix:** remove `VITE_API_BASE_URL` from Vercel, put your real Railway host in
    `vercel.json`, redeploy.

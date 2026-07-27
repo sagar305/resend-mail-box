@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { api } from '../api/client.js';
+import { api, API_BASE_URL, ApiError, isCrossOrigin } from '../api/client.js';
 import { AuthContext } from './authContext.js';
 
 export function AuthProvider({ children }) {
@@ -34,6 +34,29 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (username, password) => {
     const data = await api.login(username, password);
+
+    // The credentials were right, so confirm the session cookie actually stuck.
+    // A 401 here means the browser accepted the response but refused to store or
+    // resend the cookie — the signature of third-party cookie blocking, which is
+    // the default on iOS (every browser there is WebKit). Without this check the
+    // app would appear to log in and then silently bounce back to the login form
+    // with no explanation.
+    try {
+      await api.me();
+    } catch (error) {
+      if (error.status === 401) {
+        throw new ApiError(
+          401,
+          isCrossOrigin()
+            ? `Signed in, but your browser refused to keep the session cookie. The API is on a different domain (${API_BASE_URL}), which makes the cookie third-party — blocked by default on iOS and in Safari. Serve the API from this same domain instead (unset VITE_API_BASE_URL and use the /api rewrite).`
+            : 'Signed in, but the session cookie was not stored. Check that cookies are enabled for this site and that you are not in a private window.',
+          'cookie_blocked',
+        );
+      }
+      // Anything else (server down mid-login) is not a credentials problem.
+      throw error;
+    }
+
     setConnectionError(null);
     setUser(data.user);
     setMailboxAddress(data.mailboxAddress);
