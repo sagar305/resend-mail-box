@@ -5,6 +5,11 @@ reading received mail, browsing sent mail, and composing with a rich-text editor
 
 Backend lives in [`resend-mail-box-be`](https://github.com/sagar305/resend-mail-box-be).
 
+> **📖 New here? Read [SETUP.md](./SETUP.md).** It is the complete stepwise guide
+> for both repositories — Resend, MongoDB, Railway and Vercel setup, every
+> environment variable, and links to every library used. This README covers the
+> frontend's structure and behaviour specifically.
+
 ## Stack
 
 React 19 · Vite · Tailwind CSS v4 · TipTap 3 · plain JavaScript
