@@ -7,29 +7,34 @@ export function AuthProvider({ children }) {
   const [mailboxAddress, setMailboxAddress] = useState('');
   const [checking, setChecking] = useState(true);
 
+  const [connectionError, setConnectionError] = useState(null);
+
   // Restore the session from the httpOnly cookie on first load.
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .me()
-      .then((data) => {
-        if (cancelled) return;
-        setUser(data.user);
-        setMailboxAddress(data.mailboxAddress);
-      })
-      .catch(() => {
-        // A 401 here just means "not signed in yet".
-      })
-      .finally(() => {
-        if (!cancelled) setChecking(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+  const check = useCallback(async () => {
+    setChecking(true);
+    setConnectionError(null);
+    try {
+      const data = await api.me();
+      setUser(data.user);
+      setMailboxAddress(data.mailboxAddress);
+    } catch (error) {
+      // Only a 401 means "not signed in yet". Anything else — the API being
+      // down, a network drop — must NOT masquerade as a logged-out user, or an
+      // outage looks exactly like being silently signed out.
+      if (error.status !== 401) setConnectionError(error.message);
+      setUser(null);
+    } finally {
+      setChecking(false);
+    }
   }, []);
+
+  useEffect(() => {
+    check();
+  }, [check]);
 
   const login = useCallback(async (username, password) => {
     const data = await api.login(username, password);
+    setConnectionError(null);
     setUser(data.user);
     setMailboxAddress(data.mailboxAddress);
   }, []);
@@ -41,8 +46,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, mailboxAddress, checking, login, logout }),
-    [user, mailboxAddress, checking, login, logout],
+    () => ({ user, mailboxAddress, checking, connectionError, login, logout, retry: check }),
+    [user, mailboxAddress, checking, connectionError, login, logout, check],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
