@@ -1,7 +1,8 @@
 # resend-mail-box
 
-React frontend for the Resend mailbox portal: a three-pane mail client for
-reading received mail, browsing sent mail, and composing with a rich-text editor.
+React frontend for the Resend mailbox portal: a mail client for reading received
+mail, browsing sent mail, and composing with a rich-text editor. Three panes on a
+desktop, two on a tablet, and a single drill-down pane on a phone.
 
 Backend lives in [`resend-mail-box-be`](https://github.com/sagar305/resend-mail-box-be).
 
@@ -42,8 +43,8 @@ npm run lint      # oxlint
 `vercel.json` pins the Vite build and, importantly, rewrites `/api/*` to the
 backend — the production equivalent of the dev proxy.
 
-1. **Edit `vercel.json`** and replace the placeholder host with your Railway
-   domain:
+1. **Check the host in `vercel.json`.** It already points at this project's
+   Railway service; change it only if you deploy your own backend:
 
    ```json
    { "source": "/api/:path*", "destination": "https://your-backend.up.railway.app/api/:path*" }
@@ -51,7 +52,9 @@ backend — the production equivalent of the dev proxy.
 
 2. **Import the repo** on Vercel. Framework, build command and output directory
    all come from `vercel.json`, so there is nothing to configure in the UI.
-3. Deploy. No environment variables are needed.
+3. Deploy. **No environment variables are needed** — and in particular, do not set
+   `VITE_API_BASE_URL`; it is inlined at build time and silently overrides this
+   rewrite, sending every request cross-origin.
 
 That is the whole setup. Because the browser only ever talks to the Vercel
 domain, the session cookie stays **first-party** and no CORS is involved — which
@@ -78,7 +81,20 @@ Header (mailbox address, sign out)
 └── MessageView    the selected message, or draft actions
 ```
 
-Compose opens as a modal over the whole layout.
+Compose opens over the whole layout — a centred card from `sm` up, a full-screen
+sheet on a phone.
+
+### Responsive behaviour
+
+| Width | Layout |
+| --- | --- |
+| `< md` (phones) | One pane at a time. The list fills the screen; opening a message replaces it and the reading pane gets a back button. Folders live in a slide-in drawer behind the hamburger, and Compose is a floating button. |
+| `md … lg` (tablets, iPad portrait) | Two panes — list beside the reading pane. Folders stay in the drawer so the content gets the full width. |
+| `≥ lg` (desktop, iPad landscape) | Three panes: folder rail, list, reading pane. |
+
+Touch targets are at least 44px, form controls are 16px below `sm` so iOS does not
+zoom on focus, the layout uses `dvh` so Safari's collapsing URL bar cannot cut it
+off, and the composer footer respects the home-indicator safe area.
 
 ## Behaviour worth knowing
 
@@ -103,6 +119,6 @@ Compose opens as a modal over the whole layout.
 
 ## Not included
 
-Desktop-oriented layout (no dedicated mobile breakpoints), light theme only, no
-attachment picker on compose (received attachments are listed but not
-downloadable), and no delete for sent or received mail — Resend has no delete API.
+Light theme only (no dark mode), no attachment picker on compose (received
+attachments are listed but not downloadable), and no delete for sent or received
+mail — Resend has no delete API.

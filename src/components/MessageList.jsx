@@ -35,9 +35,13 @@ export default function MessageList({
   onLoadMore,
   loadingMore,
   onRefresh,
+  className = '',
 }) {
   return (
-    <section className="flex w-[22rem] shrink-0 flex-col border-r border-slate-200 bg-white">
+    // Full width on a phone (it is the only pane), a fixed column from md up.
+    <section
+      className={`min-w-0 flex-col border-slate-200 bg-white md:w-80 md:shrink-0 md:border-r lg:w-[22rem] ${className}`}
+    >
       <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <h1 className="text-sm font-semibold text-slate-900">{TITLES[folder]}</h1>
         <button
@@ -46,7 +50,7 @@ export default function MessageList({
           disabled={loading}
           aria-label="Refresh"
           title="Refresh"
-          className="rounded p-1.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
+          className="-mr-1.5 rounded p-2.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
         >
           <RefreshIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
@@ -79,8 +83,8 @@ export default function MessageList({
                 <button
                   type="button"
                   onClick={() => onSelect(message)}
-                  className={`flex w-full items-start gap-3 border-b border-slate-100 px-4 py-3 text-left transition-colors ${
-                    selected ? 'bg-slate-100' : 'hover:bg-slate-50'
+                  className={`flex w-full items-start gap-3 border-b border-slate-100 px-4 py-3.5 text-left transition-colors md:py-3 ${
+                    selected ? 'bg-slate-100 md:bg-slate-100' : 'active:bg-slate-100 md:hover:bg-slate-50'
                   }`}
                 >
                   <Avatar seed={counterparty(message, folder)} muted={!unread} />

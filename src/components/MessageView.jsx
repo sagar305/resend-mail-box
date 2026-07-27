@@ -1,11 +1,14 @@
 import {
   AttachmentIcon,
+  BackIcon,
   ForwardIcon,
   MailOpenIcon,
   PencilIcon,
   ReplyIcon,
   TrashIcon,
 } from './Icons.jsx';
+
+const TITLES = { inbox: 'Inbox', sent: 'Sent', drafts: 'Drafts' };
 import MailBodyFrame from './MailBodyFrame.jsx';
 import { formatBytes, formatFullDate, initials } from '../lib/format.js';
 
@@ -29,7 +32,7 @@ function ActionButton({ onClick, children, danger }) {
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm transition-colors ${
+      className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors ${
         danger
           ? 'border-slate-300 text-slate-600 hover:bg-red-50 hover:text-red-700'
           : 'border-slate-300 text-slate-700 hover:bg-slate-50'
@@ -60,19 +63,21 @@ export default function MessageView({
   onMarkUnread,
   onEditDraft,
   onDeleteDraft,
+  onBack,
+  className = '',
 }) {
   if (loading) {
-    return <Placeholder>Loading message…</Placeholder>;
+    return <Placeholder className={className}>Loading message…</Placeholder>;
   }
   if (error) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8">
+      <section className={`min-w-0 flex-1 items-center justify-center bg-white p-8 ${className}`}>
         <p className="max-w-md rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</p>
-      </div>
+      </section>
     );
   }
   if (!message) {
-    return <Placeholder>Select a message to read it.</Placeholder>;
+    return <Placeholder className={className}>Select a message to read it.</Placeholder>;
   }
 
   const isDraft = folder === 'drafts';
@@ -80,10 +85,21 @@ export default function MessageView({
   const headline = isInbox ? message.from : (message.to || []).join(', ') || '(no recipient)';
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col bg-white">
-      <header className="border-b border-slate-200 px-6 py-4">
+    <section className={`min-w-0 flex-1 flex-col bg-white ${className}`}>
+      <header className="border-b border-slate-200 px-4 py-4 sm:px-6">
+        {/* On a phone the reading pane replaces the list, so it needs a way back. */}
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back to list"
+          className="-ml-2 mb-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-slate-600 active:bg-slate-100 md:hidden"
+        >
+          <BackIcon className="h-4 w-4" />
+          {TITLES[folder]}
+        </button>
+
         <div className="flex items-start justify-between gap-4">
-          <h2 className="text-lg font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-slate-900 sm:text-lg">
             {message.subject || '(no subject)'}
           </h2>
           {message.lastEvent && (
@@ -149,7 +165,7 @@ export default function MessageView({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
         {isDraft ? (
           <div className="mail-body" dangerouslySetInnerHTML={{ __html: message.html || '' }} />
         ) : (
@@ -188,9 +204,9 @@ export default function MessageView({
   );
 }
 
-function Placeholder({ children }) {
+function Placeholder({ children, className = '' }) {
   return (
-    <section className="flex min-w-0 flex-1 items-center justify-center bg-white">
+    <section className={`min-w-0 flex-1 items-center justify-center bg-white ${className}`}>
       <p className="text-sm text-slate-400">{children}</p>
     </section>
   );

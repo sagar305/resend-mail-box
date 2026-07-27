@@ -89,6 +89,18 @@ export const LogoutIcon = (props) => (
   </Icon>
 );
 
+export const BackIcon = (props) => (
+  <Icon {...props}>
+    <path d="M15 5l-7 7 7 7" />
+  </Icon>
+);
+
+export const MenuIcon = (props) => (
+  <Icon {...props}>
+    <path d="M4 7h16M4 12h16M4 17h16" />
+  </Icon>
+);
+
 export const MailOpenIcon = (props) => (
   <Icon {...props}>
     <path d="M4 10 12 4l8 6v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8Z" />
