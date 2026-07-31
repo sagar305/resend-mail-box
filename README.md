@@ -113,12 +113,21 @@ off, and the composer footer respects the home-indicator safe area.
   listed flat; there is no conversation threading.
 - **Read/unread**: opening a message marks it read; "Mark unread" reverses it.
   This state lives in the backend's MongoDB, not in Resend.
+- **Attachments** are picked with **Attach** in the composer footer and listed as
+  removable chips with a running total. Each file is checked against the limits
+  the backend reports from `GET /api/mail/limits` — count, per-file size, total
+  size, and extensions the big mail providers reject — *before* it is read, so an
+  11 MB file or an `.exe` is refused instantly instead of after an upload. The
+  backend re-validates everything on send; these checks are for speed, not trust.
+  Files are base64 encoded only at the moment Send is pressed.
 - **Drafts** are saved explicitly with **Save draft** — there is no autosave.
-  Sending a draft removes it, since the mail then appears under Sent.
+  Sending a draft removes it, since the mail then appears under Sent. Attachments
+  are *not* kept in a draft (the backend stores drafts in MongoDB, where a
+  document caps at 16 MB), and the save confirmation says so.
 - **Pagination** uses Resend's cursor scheme via "Load more"; there is no search.
 
 ## Not included
 
-Light theme only (no dark mode), no attachment picker on compose (received
-attachments are listed but not downloadable), and no delete for sent or received
-mail — Resend has no delete API.
+Light theme only (no dark mode), no downloads for received attachments (they are
+listed with name and size only), no attachments on saved drafts, and no delete
+for sent or received mail — Resend has no delete API.

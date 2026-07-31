@@ -80,6 +80,7 @@ export const api = {
   getSentMessage: (id) => request(`/mail/sent/${id}`),
 
   send: (payload) => request('/mail/send', { method: 'POST', body: payload }),
+  limits: () => request('/mail/limits'),
 
   listDrafts: () => request('/drafts'),
   createDraft: (payload) => request('/drafts', { method: 'POST', body: payload }),
