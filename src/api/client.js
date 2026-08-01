@@ -80,8 +80,8 @@ export const api = {
    * resolved per click, since those URLs expire — so this stays a link the
    * browser follows, never a URL captured ahead of time.
    */
-  inboxAttachmentUrl: (id, attachmentId) =>
-    `${BASE_URL}/api/mail/inbox/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`,
+  attachmentUrl: (folder, id, attachmentId) =>
+    `${BASE_URL}/api/mail/${folder}/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`,
   setRead: (id, read) => request(`/mail/inbox/${id}/read`, { method: 'PATCH', body: { read } }),
 
   listSent: (params) => request(withQuery('/mail/sent', params)),

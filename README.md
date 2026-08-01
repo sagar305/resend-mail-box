@@ -113,12 +113,14 @@ off, and the composer footer respects the home-indicator safe area.
   listed flat; there is no conversation threading.
 - **Read/unread**: opening a message marks it read; "Mark unread" reverses it.
   This state lives in the backend's MongoDB, not in Resend.
-- **Received attachments** are chips in the reading pane that download on click.
-  The link points at the backend, which resolves Resend's short-lived signed URL
-  per click and redirects to it — the URL is never baked into the page, because a
-  link rendered minutes ago would already be dead. Inline images (a signature
-  logo, an embedded screenshot) are not listed: they are already rendered in the
-  body, and the paperclip badge in the list ignores them too.
+- **Attachments on a message you are reading** — received *or* sent — are chips
+  that download on click. The link points at the backend, which resolves Resend's
+  short-lived signed URL per click and redirects to it; the URL is never baked
+  into the page, because a link rendered minutes ago would already be dead.
+  Inline images (a signature logo, an embedded screenshot) are not listed: they
+  are already rendered in the body, and the paperclip badge ignores them too.
+  Sent *rows* show no paperclip — Resend can only report a sent message's files
+  one message at a time, so the count is not known until you open it.
 - **Attachments** are picked with **Attach** in the composer footer and listed as
   removable chips with a running total. Each file is checked against the limits
   the backend reports from `GET /api/mail/limits` — count, per-file size, total

@@ -218,11 +218,11 @@ export default function MessageView({
                 <li key={attachment.id || attachment.filename}>
                   <AttachmentChip
                     attachment={attachment}
-                    // Only received mail has an id to fetch by; without one there
-                    // is nothing to link to and the chip stays informational.
+                    // Drafts hold no files, and without an id there is nothing to
+                    // fetch by — either way the chip stays informational.
                     href={
-                      isInbox && attachment.id
-                        ? api.inboxAttachmentUrl(message.id, attachment.id)
+                      !isDraft && attachment.id
+                        ? api.attachmentUrl(folder, message.id, attachment.id)
                         : null
                     }
                   />
