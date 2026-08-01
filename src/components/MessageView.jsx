@@ -9,6 +9,7 @@ import {
 } from './Icons.jsx';
 
 const TITLES = { inbox: 'Inbox', sent: 'Sent', drafts: 'Drafts' };
+import { api } from '../api/client.js';
 import MailBodyFrame from './MailBodyFrame.jsx';
 import { formatBytes, formatFullDate, initials } from '../lib/format.js';
 
@@ -40,6 +41,40 @@ function ActionButton({ onClick, children, danger }) {
     >
       {children}
     </button>
+  );
+}
+
+/** A file on a message. Rendered as a download link when `href` is given. */
+function AttachmentChip({ attachment, href }) {
+  const label = attachment.filename || 'attachment';
+  const className =
+    'inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600';
+  const contents = (
+    <>
+      <AttachmentIcon className="h-4 w-4 shrink-0 text-slate-400" />
+      <span className="max-w-[16rem] truncate">{label}</span>
+      {attachment.size ? (
+        <span className="text-xs text-slate-400">{formatBytes(attachment.size)}</span>
+      ) : null}
+    </>
+  );
+
+  if (!href) return <span className={className}>{contents}</span>;
+
+  return (
+    <a
+      href={href}
+      // The backend answers with a redirect to Resend's host, where the browser
+      // ignores `download` — the file still arrives as one because that URL is
+      // served with an attachment disposition.
+      download={label}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={`Download ${label}`}
+      className={`${className} transition-colors hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900`}
+    >
+      {contents}
+    </a>
   );
 }
 
@@ -180,23 +215,20 @@ export default function MessageView({
             </p>
             <ul className="flex flex-wrap gap-2">
               {message.attachments.map((attachment) => (
-                <li
-                  key={attachment.id || attachment.filename}
-                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
-                >
-                  <AttachmentIcon className="h-4 w-4 text-slate-400" />
-                  <span className="max-w-[16rem] truncate">
-                    {attachment.filename || 'attachment'}
-                  </span>
-                  {attachment.size ? (
-                    <span className="text-xs text-slate-400">{formatBytes(attachment.size)}</span>
-                  ) : null}
+                <li key={attachment.id || attachment.filename}>
+                  <AttachmentChip
+                    attachment={attachment}
+                    // Drafts hold no files, and without an id there is nothing to
+                    // fetch by — either way the chip stays informational.
+                    href={
+                      !isDraft && attachment.id
+                        ? api.attachmentUrl(folder, message.id, attachment.id)
+                        : null
+                    }
+                  />
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-xs text-slate-400">
-              Attachment downloads aren’t wired up in this version.
-            </p>
           </div>
         )}
       </div>

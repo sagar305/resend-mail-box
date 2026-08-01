@@ -74,12 +74,21 @@ export const api = {
 
   listInbox: (params) => request(withQuery('/mail/inbox', params)),
   getInboxMessage: (id) => request(`/mail/inbox/${id}`),
+  /**
+   * A URL for the browser to navigate to, not something to fetch: the backend
+   * answers with a redirect to Resend's signed download URL. It has to be
+   * resolved per click, since those URLs expire — so this stays a link the
+   * browser follows, never a URL captured ahead of time.
+   */
+  attachmentUrl: (folder, id, attachmentId) =>
+    `${BASE_URL}/api/mail/${folder}/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachmentId)}`,
   setRead: (id, read) => request(`/mail/inbox/${id}/read`, { method: 'PATCH', body: { read } }),
 
   listSent: (params) => request(withQuery('/mail/sent', params)),
   getSentMessage: (id) => request(`/mail/sent/${id}`),
 
   send: (payload) => request('/mail/send', { method: 'POST', body: payload }),
+  limits: () => request('/mail/limits'),
 
   listDrafts: () => request('/drafts'),
   createDraft: (payload) => request('/drafts', { method: 'POST', body: payload }),
