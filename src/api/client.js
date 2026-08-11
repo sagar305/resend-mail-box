@@ -90,6 +90,18 @@ export const api = {
   send: (payload) => request('/mail/send', { method: 'POST', body: payload }),
   limits: () => request('/mail/limits'),
 
+  listScheduled: () => request('/mail/scheduled'),
+  getScheduledMessage: (id) => request(`/mail/scheduled/${id}`),
+  cancelScheduled: (id) => request(`/mail/scheduled/${id}`, { method: 'DELETE' }),
+  reschedule: (id, scheduledAt) =>
+    request(`/mail/scheduled/${id}`, { method: 'PATCH', body: { scheduledAt } }),
+
+  /** Starts a bulk send. Answers with a job to poll, not a finished result. */
+  sendBulk: (payload) => request('/mail/bulk', { method: 'POST', body: payload }),
+  listBulkJobs: () => request('/mail/bulk'),
+  getBulkJob: (id) => request(`/mail/bulk/${id}`),
+  retryBulkJob: (id) => request(`/mail/bulk/${id}/retry`, { method: 'POST' }),
+
   listDrafts: () => request('/drafts'),
   createDraft: (payload) => request('/drafts', { method: 'POST', body: payload }),
   updateDraft: (id, payload) => request(`/drafts/${id}`, { method: 'PUT', body: payload }),

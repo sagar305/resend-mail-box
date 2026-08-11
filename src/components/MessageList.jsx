@@ -1,7 +1,8 @@
-import { AttachmentIcon, RefreshIcon } from './Icons.jsx';
+import { AttachmentIcon, ClockIcon, RefreshIcon } from './Icons.jsx';
 import { addressLabel, formatListDate, initials } from '../lib/format.js';
+import { formatScheduledAt } from '../lib/schedule.js';
 
-const TITLES = { inbox: 'Inbox', sent: 'Sent', drafts: 'Drafts' };
+const TITLES = { inbox: 'Inbox', sent: 'Sent', scheduled: 'Scheduled', drafts: 'Drafts' };
 
 /** Inbox rows key off the sender; Sent and Drafts off the recipients. */
 function counterparty(message, folder) {
@@ -99,7 +100,11 @@ export default function MessageList({
                         {counterparty(message, folder)}
                       </span>
                       <span className="shrink-0 text-[11px] text-slate-400">
-                        {formatListDate(message.updatedAt || message.createdAt)}
+                        {/* In Scheduled the useful date is when it goes out, not
+                            when it was written. */}
+                        {folder === 'scheduled'
+                          ? formatScheduledAt(message.scheduledAt)
+                          : formatListDate(message.updatedAt || message.createdAt)}
                       </span>
                     </span>
 
@@ -111,15 +116,18 @@ export default function MessageList({
                       >
                         {message.subject || '(no subject)'}
                       </span>
+                      {folder === 'scheduled' && (
+                        <ClockIcon className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                      )}
                       {message.attachmentCount > 0 && (
                         <AttachmentIcon className="h-3.5 w-3.5 shrink-0 text-slate-400" />
                       )}
                       {unread && <span className="h-2 w-2 shrink-0 rounded-full bg-blue-600" />}
                     </span>
 
-                    {folder === 'drafts' && message.text && (
+                    {(folder === 'drafts' || folder === 'scheduled') && (message.text || message.preview) && (
                       <span className="mt-0.5 block truncate text-xs text-slate-400">
-                        {message.text}
+                        {message.preview || message.text}
                       </span>
                     )}
                   </span>

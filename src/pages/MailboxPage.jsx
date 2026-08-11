@@ -20,7 +20,12 @@ const emptyFolder = {
   error: null,
 };
 
-const initialStore = { inbox: emptyFolder, sent: emptyFolder, drafts: emptyFolder };
+const initialStore = {
+  inbox: emptyFolder,
+  sent: emptyFolder,
+  scheduled: emptyFolder,
+  drafts: emptyFolder,
+};
 
 /** Merge a freshly fetched page into what we already hold, newest first. */
 function mergeMessages(existing, incoming) {
@@ -34,7 +39,30 @@ function mergeMessages(existing, incoming) {
 function fetchFolder(folder, params) {
   if (folder === 'inbox') return api.listInbox(params);
   if (folder === 'sent') return api.listSent(params);
+  // Scheduled mail is held locally rather than paged from Resend, so it arrives
+  // whole and its list ordering is by send time, not by id.
+  if (folder === 'scheduled') return api.listScheduled();
   return api.listDrafts().then(({ drafts }) => ({ messages: drafts, hasMore: false }));
+}
+
+/**
+ * Whether a folder arrives as a complete list rather than a page of one.
+ *
+ * Merging is right for a paged folder, where an older page must not wipe out a
+ * newer one. It is wrong for these: the server's answer is the whole truth, so a
+ * cancelled schedule or a deleted draft has to disappear rather than linger
+ * because it is still in the copy held here.
+ */
+function isWholeList(folder) {
+  return folder === 'scheduled' || folder === 'drafts';
+}
+
+/** Scheduled rows sort by when they go out; everything else by when it arrived. */
+function sortForFolder(folder, messages) {
+  if (folder !== 'scheduled') return messages;
+  return [...messages].sort(
+    (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+  );
 }
 
 export default function MailboxPage() {
@@ -47,6 +75,8 @@ export default function MailboxPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
   const [compose, setCompose] = useState(null); // null | { …prefill }
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [limits, setLimits] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const visitedRef = useRef(new Set());
@@ -76,10 +106,14 @@ export default function MailboxPage() {
           ...current,
           [key]: {
             ...current[key],
-            // A silent poll merges; an explicit refresh replaces the list.
-            messages: silent
-              ? mergeMessages(current[key].messages, result.messages)
-              : result.messages,
+            // A silent poll merges a fresh page in; an explicit refresh, or any
+            // folder that arrives complete, replaces what is held.
+            messages: sortForFolder(
+              key,
+              silent && !isWholeList(key)
+                ? mergeMessages(current[key].messages, result.messages)
+                : result.messages,
+            ),
             hasMore: result.hasMore,
             loading: false,
             error: null,
@@ -118,12 +152,24 @@ export default function MailboxPage() {
     [store, patch, handleFailure],
   );
 
-  // Inbox and drafts load up front so their sidebar badges are correct even
-  // while another folder is on screen; sent loads on first visit.
+  /** The day's remaining allowances, for the sidebar meter. */
+  const loadLimits = useCallback(async () => {
+    try {
+      setLimits(await api.limits());
+    } catch {
+      // The meter is informative, not load-bearing — the server enforces both
+      // caps regardless of whether this number made it to the screen.
+    }
+  }, []);
+
+  // Inbox, drafts and scheduled load up front so their sidebar badges are
+  // correct even while another folder is on screen; sent loads on first visit.
   useEffect(() => {
-    visitedRef.current.add('inbox').add('drafts');
+    visitedRef.current.add('inbox').add('drafts').add('scheduled');
     loadFolder('inbox');
     loadFolder('drafts');
+    loadFolder('scheduled');
+    loadLimits();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- first load only
   }, []);
 
@@ -134,27 +180,38 @@ export default function MailboxPage() {
   }, [folder, loadFolder]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => loadFolder('inbox', { silent: true }), POLL_INTERVAL_MS);
+    const timer = window.setInterval(() => {
+      loadFolder('inbox', { silent: true });
+      // Scheduled mail leaves the folder on its own once its time passes, and the
+      // day's allowances refill without anyone pressing anything, so both are
+      // refreshed on the same beat as the inbox.
+      loadFolder('scheduled', { silent: true });
+      loadLimits();
+    }, POLL_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [loadFolder]);
+  }, [loadFolder, loadLimits]);
 
-  // A draft deleted from inside the composer (or gone for any other reason)
-  // must not stay open in the reading pane with dead action buttons.
+  // A draft deleted from inside the composer, or a scheduled mail that has since
+  // gone out, must not stay open in the reading pane with dead action buttons.
   useEffect(() => {
-    if (folder !== 'drafts' || !selectedId || store.drafts.loading) return;
-    if (!store.drafts.messages.some((draft) => draft.id === selectedId)) {
+    if (!isWholeList(folder) || !selectedId) return;
+    const held = store[folder];
+    if (held.loading) return;
+    if (!held.messages.some((message) => message.id === selectedId)) {
       setSelectedId(null);
       setSelected(null);
     }
-  }, [folder, selectedId, store.drafts.messages, store.drafts.loading]);
+  }, [folder, selectedId, store]);
 
   const openMessage = useCallback(
     async (message) => {
       setSelectedId(message.id);
       setDetailError(null);
 
-      if (folder === 'drafts') {
-        setSelected(message); // drafts arrive complete, no detail fetch needed
+      // Drafts and scheduled mail are stored here rather than at Resend, so the
+      // list already carries the whole message — there is nothing to fetch.
+      if (folder === 'drafts' || folder === 'scheduled') {
+        setSelected(message);
         return;
       }
 
@@ -218,6 +275,37 @@ export default function MailboxPage() {
     }
   };
 
+  const handleCancelScheduled = async (message) => {
+    try {
+      await api.cancelScheduled(message.id);
+      setSelected(null);
+      setSelectedId(null);
+      // The slot goes back to the day, so the meter is stale until it reloads.
+      loadFolder('scheduled');
+      loadLimits();
+    } catch (error) {
+      handleFailure(error, setDetailError);
+    }
+  };
+
+  /**
+   * Rescheduling can move the mail to a different day, which moves its slot
+   * between two days' counts — so the meter is reloaded even though nothing was
+   * sent or cancelled. Errors are rethrown for the panel to show inline, since
+   * the reason is usually the target day being full.
+   */
+  const handleReschedule = async (message, scheduledAt) => {
+    try {
+      const { message: updated } = await api.reschedule(message.id, scheduledAt);
+      setSelected(updated);
+      loadFolder('scheduled');
+      loadLimits();
+    } catch (error) {
+      if (error.status === 401) logout();
+      throw error;
+    }
+  };
+
   const handleDeleteDraft = async (draft) => {
     try {
       await api.deleteDraft(draft.id);
@@ -245,8 +333,19 @@ export default function MailboxPage() {
     });
   };
 
-  const handleSent = () => {
+  /** `scheduled` when the compose window scheduled the mail instead of sending it. */
+  const handleSent = (result) => {
     setCompose(null);
+    loadLimits();
+
+    if (result?.scheduledAt) {
+      // It has not been sent, so landing in Sent would show an empty folder and
+      // leave someone wondering where the mail went.
+      loadFolder('scheduled');
+      changeFolder('scheduled');
+      return;
+    }
+
     // Marked visited up front so the folder-change effect doesn't also fetch it.
     visitedRef.current.add('sent');
     changeFolder('sent');
@@ -267,8 +366,14 @@ export default function MailboxPage() {
       setCompose({});
       setDrawerOpen(false);
     },
+    onBulkCompose: () => {
+      setBulkOpen(true);
+      setDrawerOpen(false);
+    },
     unreadCount,
     draftCount: store.drafts.messages.length,
+    scheduledCount: store.scheduled.messages.length,
+    limits,
   };
 
   return (
@@ -356,6 +461,8 @@ export default function MailboxPage() {
           onMarkUnread={handleMarkUnread}
           onEditDraft={(draft) => setCompose(draft)}
           onDeleteDraft={handleDeleteDraft}
+          onCancelScheduled={handleCancelScheduled}
+          onReschedule={handleReschedule}
           onBack={clearSelection}
           className={`${readingOnPhone ? 'flex' : 'hidden md:flex'}`}
         />

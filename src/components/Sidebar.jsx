@@ -1,8 +1,18 @@
-import { CloseIcon, DraftIcon, InboxIcon, PencilIcon, SentIcon } from './Icons.jsx';
+import {
+  ClockIcon,
+  CloseIcon,
+  DraftIcon,
+  InboxIcon,
+  PencilIcon,
+  PeopleIcon,
+  SentIcon,
+} from './Icons.jsx';
+import LimitsMeter from './LimitsMeter.jsx';
 
 const FOLDERS = [
   { key: 'inbox', label: 'Inbox', Icon: InboxIcon },
   { key: 'sent', label: 'Sent', Icon: SentIcon },
+  { key: 'scheduled', label: 'Scheduled', Icon: ClockIcon },
   { key: 'drafts', label: 'Drafts', Icon: DraftIcon },
 ];
 
@@ -14,14 +24,18 @@ export default function Sidebar({
   folder,
   onSelectFolder,
   onCompose,
+  onBulkCompose,
   unreadCount,
   draftCount,
+  scheduledCount,
+  limits,
   className = '',
   onClose,
 }) {
   const badgeFor = (key) => {
     if (key === 'inbox') return unreadCount > 0 ? unreadCount : null;
     if (key === 'drafts') return draftCount > 0 ? draftCount : null;
+    if (key === 'scheduled') return scheduledCount > 0 ? scheduledCount : null;
     return null;
   };
 
@@ -46,10 +60,22 @@ export default function Sidebar({
       <button
         type="button"
         onClick={onCompose}
-        className="mb-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-700"
       >
         <PencilIcon className="h-4 w-4" />
         Compose
+      </button>
+
+      {/* Separate from Compose rather than a mode inside it: the two write very
+          different things, and a bulk send is not something to arrive at by
+          accident from a normal message. */}
+      <button
+        type="button"
+        onClick={onBulkCompose}
+        className="mb-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+      >
+        <PeopleIcon className="h-4 w-4" />
+        Bulk send
       </button>
 
       {FOLDERS.map(({ key, label, Icon }) => {
@@ -76,6 +102,10 @@ export default function Sidebar({
           </button>
         );
       })}
+
+      {/* Below the folders, where it is visible before a long recipient list gets
+          built rather than after the send is refused. */}
+      <LimitsMeter limits={limits} className="mt-auto" />
     </nav>
   );
 }

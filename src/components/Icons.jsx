@@ -37,6 +37,41 @@ export const DraftIcon = (props) => (
   </Icon>
 );
 
+export const ClockIcon = (props) => (
+  <Icon {...props}>
+    <circle cx="12" cy="12" r="8" />
+    <path d="M12 7.5V12l3 2" />
+  </Icon>
+);
+
+export const PeopleIcon = (props) => (
+  <Icon {...props}>
+    <path d="M15.5 20v-1.5a3.5 3.5 0 0 0-3.5-3.5H7a3.5 3.5 0 0 0-3.5 3.5V20" />
+    <circle cx="9.5" cy="8" r="3.2" />
+    <path d="M20.5 20v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.6a3.2 3.2 0 0 1 0 6.2" />
+  </Icon>
+);
+
+export const UploadIcon = (props) => (
+  <Icon {...props}>
+    <path d="M12 15V4m0 0L8 8m4-4 4 4" />
+    <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+  </Icon>
+);
+
+export const PlusIcon = (props) => (
+  <Icon {...props}>
+    <path d="M12 5v14M5 12h14" />
+  </Icon>
+);
+
+export const EyeIcon = (props) => (
+  <Icon {...props}>
+    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+    <circle cx="12" cy="12" r="2.8" />
+  </Icon>
+);
+
 export const PencilIcon = (props) => (
   <Icon {...props}>
     <path d="M4 20h4l10-10a2.5 2.5 0 0 0-3.5-3.5L4 16.5V20Z" />
