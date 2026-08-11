@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
 import { useAuth } from '../context/authContext.js';
+import BulkComposeModal from '../components/BulkComposeModal.jsx';
 import ComposeModal from '../components/ComposeModal.jsx';
 import MessageList from '../components/MessageList.jsx';
 import MessageView from '../components/MessageView.jsx';
@@ -480,6 +481,21 @@ export default function MailboxPage() {
         >
           <PencilIcon className="h-5 w-5" />
         </button>
+      )}
+
+      {bulkOpen && (
+        <BulkComposeModal
+          mailboxAddress={mailboxAddress}
+          onClose={() => setBulkOpen(false)}
+          // A bulk send fills Sent (or Scheduled) and spends the day's
+          // allowances, so both the folders and the meter go stale as it runs.
+          onStarted={() => {
+            loadLimits();
+            loadFolder('scheduled');
+            visitedRef.current.add('sent');
+            loadFolder('sent');
+          }}
+        />
       )}
 
       {compose && (
