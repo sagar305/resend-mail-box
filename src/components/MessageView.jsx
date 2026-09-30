@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import {
   AttachmentIcon,
   BackIcon,
+  ClockIcon,
   ForwardIcon,
   MailOpenIcon,
   PencilIcon,
@@ -8,10 +10,16 @@ import {
   TrashIcon,
 } from './Icons.jsx';
 
-const TITLES = { inbox: 'Inbox', sent: 'Sent', drafts: 'Drafts' };
+const TITLES = { inbox: 'Inbox', sent: 'Sent', scheduled: 'Scheduled', drafts: 'Drafts' };
 import { api } from '../api/client.js';
 import MailBodyFrame from './MailBodyFrame.jsx';
 import { formatBytes, formatFullDate, initials } from '../lib/format.js';
+import {
+  formatScheduledAt,
+  fromIsoInstant,
+  scheduleBounds,
+  toIsoInstant,
+} from '../lib/schedule.js';
 
 const STATUS_STYLES = {
   delivered: 'bg-emerald-50 text-emerald-700',
@@ -78,6 +86,69 @@ function AttachmentChip({ attachment, href }) {
   );
 }
 
+/**
+ * The reschedule control, folded away until asked for.
+ *
+ * Moving a scheduled mail is an update, never a cancel followed by a new send:
+ * Resend cannot revive a cancelled email, so a failure between the two halves of
+ * that pair would destroy the message instead of moving it.
+ */
+function ReschedulePanel({ message, onReschedule, onDone }) {
+  const [value, setValue] = useState(fromIsoInstant(message.scheduledAt));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const bounds = scheduleBounds();
+
+  const submit = async () => {
+    const iso = toIsoInstant(value);
+    if (!iso) {
+      setError('Pick a date and time first.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await onReschedule(message, iso);
+      onDone();
+    } catch (rescheduleError) {
+      setError(rescheduleError.message);
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="datetime-local"
+          value={value}
+          min={bounds.min}
+          max={bounds.max}
+          onChange={(event) => setValue(event.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={busy}
+          className="inline-flex min-h-10 items-center rounded-lg bg-slate-900 px-3 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
+        >
+          {busy ? 'Moving…' : 'Move'}
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          disabled={busy}
+          className="text-xs font-medium text-slate-500 hover:text-slate-900"
+        >
+          Cancel
+        </button>
+      </div>
+      {error && <p className="text-xs text-red-700">{error}</p>}
+    </div>
+  );
+}
+
 function AddressLine({ label, addresses }) {
   if (!addresses?.length) return null;
   return (
@@ -98,9 +169,15 @@ export default function MessageView({
   onMarkUnread,
   onEditDraft,
   onDeleteDraft,
+  onCancelScheduled,
+  onReschedule,
   onBack,
   className = '',
 }) {
+  // Held as the message it belongs to rather than a flag, so selecting a
+  // different message closes it instead of leaving it open over the wrong mail.
+  const [rescheduleFor, setRescheduleFor] = useState(null);
+
   if (loading) {
     return <Placeholder className={className}>Loading message…</Placeholder>;
   }
@@ -117,6 +194,7 @@ export default function MessageView({
 
   const isDraft = folder === 'drafts';
   const isInbox = folder === 'inbox';
+  const isScheduled = folder === 'scheduled';
   const headline = isInbox ? message.from : (message.to || []).join(', ') || '(no recipient)';
 
   return (
@@ -162,6 +240,12 @@ export default function MessageView({
             <p className="mt-0.5 text-xs text-slate-400">
               {formatFullDate(message.updatedAt || message.createdAt)}
             </p>
+            {isScheduled && (
+              <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                <ClockIcon className="h-3.5 w-3.5" />
+                Sends {formatScheduledAt(message.scheduledAt)}
+              </p>
+            )}
           </div>
         </div>
 
@@ -175,6 +259,19 @@ export default function MessageView({
               <ActionButton danger onClick={() => onDeleteDraft(message)}>
                 <TrashIcon className="h-4 w-4" />
                 Delete
+              </ActionButton>
+            </>
+          ) : isScheduled ? (
+            <>
+              <ActionButton onClick={() => setRescheduleFor(message.id)}>
+                <ClockIcon className="h-4 w-4" />
+                Reschedule
+              </ActionButton>
+              {/* Cancelling is final — Resend cannot bring a cancelled mail back —
+                  so the label says cancel the send, not delete the message. */}
+              <ActionButton danger onClick={() => onCancelScheduled(message)}>
+                <TrashIcon className="h-4 w-4" />
+                Cancel send
               </ActionButton>
             </>
           ) : (
@@ -198,10 +295,18 @@ export default function MessageView({
             </>
           )}
         </div>
+
+        {rescheduleFor === message.id && (
+          <ReschedulePanel
+            message={message}
+            onReschedule={onReschedule}
+            onDone={() => setRescheduleFor(null)}
+          />
+        )}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
-        {isDraft ? (
+        {isDraft || isScheduled ? (
           <div className="mail-body" dangerouslySetInnerHTML={{ __html: message.html || '' }} />
         ) : (
           <MailBodyFrame html={message.html} text={message.text} />

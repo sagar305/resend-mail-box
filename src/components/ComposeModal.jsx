@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client.js';
-import { AttachmentIcon, CloseIcon, SentIcon, TrashIcon } from './Icons.jsx';
+import { AttachmentIcon, ClockIcon, CloseIcon, SentIcon, TrashIcon } from './Icons.jsx';
 import RichTextEditor from './RichTextEditor.jsx';
 import { checkFiles, DEFAULT_LIMITS, readAsAttachment, totalBytes } from '../lib/attachments.js';
 import { formatBytes } from '../lib/format.js';
+import { formatResetTime, scheduleBounds, toIsoInstant } from '../lib/schedule.js';
 
 function Field({ label, children }) {
   return (
@@ -36,6 +37,11 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
   // Replaced by the server's own numbers as soon as they arrive; the defaults are
   // only what we validate against in the meantime.
   const [limits, setLimits] = useState(DEFAULT_LIMITS);
+  // The whole limits payload, not just the attachment numbers — the schedule
+  // picker needs the day's remaining slots and how far ahead Resend will accept.
+  const [serverLimits, setServerLimits] = useState(null);
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [showSchedule, setShowSchedule] = useState(false);
   const [busy, setBusy] = useState(null); // 'send' | 'draft' | 'discard'
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -55,7 +61,9 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
     // cases and the server rejects anything they miss.
     api.limits()
       .then((result) => {
-        if (!cancelled && result?.attachments) setLimits(result.attachments);
+        if (cancelled) return;
+        if (result?.attachments) setLimits(result.attachments);
+        if (result) setServerLimits(result);
       })
       .catch(() => {});
     return () => {
@@ -83,20 +91,37 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
 
   const payload = () => ({ to, cc, bcc, subject, html });
 
+  const scheduling = serverLimits?.scheduling;
+  const bounds = scheduleBounds(scheduling?.maxHorizonDays ?? 30);
+  // A schedule is only pending while the picker is open AND holds a time, so
+  // closing the panel is a way to go back to sending now.
+  const pendingSchedule = showSchedule && scheduledAt ? toIsoInstant(scheduledAt) : null;
+  const noSlotsLeft = scheduling?.remaining === 0;
+
   const handleSend = async () => {
+    if (pendingSchedule && noSlotsLeft) {
+      setError(`Today's ${scheduling.limit} scheduled emails are used up. Send now, or pick a time tomorrow.`);
+      return;
+    }
+
     setBusy('send');
     setError(null);
     try {
       // Encoding happens now rather than at pick time so a large file is held as
       // base64 for as short a time as possible.
       const encoded = await Promise.all(attachments.map(readAsAttachment));
-      await api.send({ ...payload(), attachments: encoded });
-      // The mail now lives in Sent, so the draft it came from is redundant.
+      const result = await api.send({
+        ...payload(),
+        attachments: encoded,
+        scheduledAt: pendingSchedule,
+      });
+      // The mail now lives in Sent (or Scheduled), so the draft it came from is
+      // redundant either way.
       if (draftId) {
         await api.deleteDraft(draftId).catch(() => {});
         onDraftsChanged?.();
       }
-      onSent?.();
+      onSent?.(result);
     } catch (sendError) {
       setError(sendError.message);
       setBusy(null);
@@ -247,6 +272,41 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
           </div>
         )}
 
+        {showSchedule && (
+          <div className="flex flex-col gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="text-xs font-medium tracking-wide text-slate-500 uppercase">
+                Send at
+              </label>
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                min={bounds.min}
+                max={bounds.max}
+                onChange={(event) => setScheduledAt(event.target.value)}
+                className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSchedule(false);
+                  setScheduledAt('');
+                }}
+                className="text-xs font-medium text-slate-500 hover:text-slate-900"
+              >
+                Send now instead
+              </button>
+            </div>
+            {scheduling && (
+              <p className="text-xs text-slate-500">
+                {scheduling.remaining} of {scheduling.limit} scheduling slots left today
+                {scheduling.resetsAt && `, resets at ${formatResetTime(scheduling.resetsAt)}`}. Up
+                to {scheduling.maxHorizonDays} days ahead.
+              </p>
+            )}
+          </div>
+        )}
+
         {attachmentErrors.length > 0 && (
           <ul className="border-t border-amber-100 bg-amber-50 px-4 py-2 text-sm text-amber-800">
             {attachmentErrors.map((message) => (
@@ -264,12 +324,28 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
           <button
             type="button"
             onClick={handleSend}
-            disabled={busy !== null}
+            disabled={busy !== null || (showSchedule && !scheduledAt)}
             className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:opacity-50"
           >
-            <SentIcon className="h-4 w-4" />
-            {busy === 'send' ? 'Sending…' : 'Send'}
+            {pendingSchedule ? <ClockIcon className="h-4 w-4" /> : <SentIcon className="h-4 w-4" />}
+            {busy === 'send'
+              ? (pendingSchedule ? 'Scheduling…' : 'Sending…')
+              : (pendingSchedule ? 'Schedule' : 'Send')}
           </button>
+
+          {!showSchedule && (
+            <button
+              type="button"
+              onClick={() => setShowSchedule(true)}
+              disabled={busy !== null}
+              aria-label="Schedule send"
+              title={noSlotsLeft ? 'No scheduling slots left today' : 'Schedule send'}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 disabled:opacity-50"
+            >
+              <ClockIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Schedule</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleSaveDraft}
