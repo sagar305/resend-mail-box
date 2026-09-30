@@ -8,6 +8,11 @@ import { formatResetTime } from '../lib/schedule.js';
  * sent log — so it is a real number rather than a guess, but it is theirs and the
  * bar stays visually quieter to say so.
  *
+ * The scheduled bar counts mail DUE TO GO OUT today, not mail scheduled today —
+ * slots belong to the delivery day. Scheduling fifty for next week moves that
+ * day's count, not this one, so the label says "going out" rather than
+ * "scheduled" and the picker asks about its own day separately.
+ *
  * Both windows are UTC, which is almost nobody's midnight. The reset time is
  * printed in the reader's own timezone, because an allowance that refills at
  * half past five in the morning looks like a bug until you know why.
@@ -41,7 +46,7 @@ export default function LimitsMeter({ limits, className = '' }) {
       {scheduling && (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs font-medium text-slate-700">Scheduled today</span>
+            <span className="text-xs font-medium text-slate-700">Going out today</span>
             <span className="text-[11px] text-slate-500 tabular-nums">
               {scheduling.used} / {scheduling.limit}
             </span>
@@ -53,7 +58,7 @@ export default function LimitsMeter({ limits, className = '' }) {
           />
           {scheduling.remaining === 0 && (
             <p className="text-[11px] text-red-600">
-              No scheduling slots left today.
+              Today is full. Other days may still have room.
             </p>
           )}
         </div>

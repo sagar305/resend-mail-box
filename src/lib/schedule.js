@@ -31,6 +31,12 @@ export function fromIsoInstant(iso) {
   return Number.isNaN(date.getTime()) ? '' : toInputValue(date);
 }
 
+/** The UTC day a picked local time falls in, for asking about that day's slots. */
+export function utcDayOf(inputValue) {
+  const iso = toIsoInstant(inputValue);
+  return iso ? iso.slice(0, 10) : null;
+}
+
 /**
  * The window the picker allows. The floor is a minute out rather than now, since
  * a time chosen and submitted in the same minute would already be in the past by
