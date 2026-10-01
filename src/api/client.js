@@ -88,7 +88,12 @@ export const api = {
   getSentMessage: (id) => request(`/mail/sent/${id}`),
 
   send: (payload) => request('/mail/send', { method: 'POST', body: payload }),
-  limits: () => request('/mail/limits'),
+  /**
+   * `day` (YYYY-MM-DD, UTC) asks how many scheduling slots THAT delivery day has
+   * left. Omitted it answers for today, which is only the right question when
+   * the mail is going out today.
+   */
+  limits: (day) => request(withQuery('/mail/limits', { day })),
 
   listScheduled: () => request('/mail/scheduled'),
   getScheduledMessage: (id) => request(`/mail/scheduled/${id}`),

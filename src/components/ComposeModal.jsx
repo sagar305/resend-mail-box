@@ -4,7 +4,7 @@ import { AttachmentIcon, ClockIcon, CloseIcon, SentIcon, TrashIcon } from './Ico
 import RichTextEditor from './RichTextEditor.jsx';
 import { checkFiles, DEFAULT_LIMITS, readAsAttachment, totalBytes } from '../lib/attachments.js';
 import { formatBytes } from '../lib/format.js';
-import { formatResetTime, scheduleBounds, toIsoInstant } from '../lib/schedule.js';
+import { formatResetTime, scheduleBounds, toIsoInstant, utcDayOf } from '../lib/schedule.js';
 
 function Field({ label, children }) {
   return (
@@ -55,11 +55,16 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
 
+  // Slots are counted per delivery day, so the picker has to ask about the day
+  // it is pointing at. Quoting today's remainder for a mail going out next week
+  // would promise slots that day may not have.
+  const scheduleDay = showSchedule ? utcDayOf(scheduledAt) : null;
+
   useEffect(() => {
     let cancelled = false;
     // A failure here is not worth showing: the defaults still catch the obvious
     // cases and the server rejects anything they miss.
-    api.limits()
+    api.limits(scheduleDay)
       .then((result) => {
         if (cancelled) return;
         if (result?.attachments) setLimits(result.attachments);
@@ -69,7 +74,7 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [scheduleDay]);
 
   const attachedBytes = totalBytes(attachments);
 
@@ -100,7 +105,10 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
 
   const handleSend = async () => {
     if (pendingSchedule && noSlotsLeft) {
-      setError(`Today's ${scheduling.limit} scheduled emails are used up. Send now, or pick a time tomorrow.`);
+      setError(
+        `All ${scheduling.limit} scheduling slots for ${scheduling.day} are used up. ` +
+        'Send now, or pick another day.',
+      );
       return;
     }
 
@@ -299,7 +307,10 @@ export default function ComposeModal({ initial, mailboxAddress, onClose, onSent,
             </div>
             {scheduling && (
               <p className="text-xs text-slate-500">
-                {scheduling.remaining} of {scheduling.limit} scheduling slots left today
+                {/* Named rather than called "today", because this is the day the
+                    picker is pointing at and it usually is not today. */}
+                {scheduling.remaining} of {scheduling.limit} scheduling slots left for{' '}
+                {scheduleDay ? scheduling.day : 'today'}
                 {scheduling.resetsAt && `, resets at ${formatResetTime(scheduling.resetsAt)}`}. Up
                 to {scheduling.maxHorizonDays} days ahead.
               </p>

@@ -13,7 +13,7 @@ import RecipientTable from './RecipientTable.jsx';
 import RichTextEditor from './RichTextEditor.jsx';
 import { checkFiles, DEFAULT_LIMITS, readAsAttachment, totalBytes } from '../lib/attachments.js';
 import { formatBytes } from '../lib/format.js';
-import { formatResetTime, scheduleBounds, toIsoInstant } from '../lib/schedule.js';
+import { formatResetTime, scheduleBounds, toIsoInstant, utcDayOf } from '../lib/schedule.js';
 
 /*
  * Bulk send: one separate, personalized mail per recipient.
@@ -87,9 +87,14 @@ export default function BulkComposeModal({ mailboxAddress, onClose, onStarted })
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [onClose, busy]);
 
+  // Slots are counted per delivery day, so the count has to be for the day being
+  // scheduled into. With fifty rows on the table, quoting today's remainder for a
+  // send going out next week is the difference between "this fits" and a refusal.
+  const scheduleDay = showSchedule ? utcDayOf(scheduledAt) : null;
+
   useEffect(() => {
     let cancelled = false;
-    api.limits()
+    api.limits(scheduleDay)
       .then((result) => {
         if (cancelled || !result) return;
         if (result.attachments) setLimits(result.attachments);
@@ -97,7 +102,7 @@ export default function BulkComposeModal({ mailboxAddress, onClose, onStarted })
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, []);
+  }, [scheduleDay]);
 
   const tokens = useMemo(() => tokensIn(subject, html), [subject, html]);
 
@@ -116,9 +121,12 @@ export default function BulkComposeModal({ mailboxAddress, onClose, onStarted })
 
   /*
    * Why a send would be refused, worked out here rather than discovered by the
-   * server. Scheduling spends a slot per recipient, and an immediate send has to
-   * fit in what is left of the plan's day — both are knowable before anyone
-   * presses anything.
+   * server.
+   *
+   * The two cases charge different allowances. Scheduling spends slots on the
+   * delivery day, so a long list is measured against that date's budget — which
+   * is what lets a week of mail be laid out in one sitting. An immediate send
+   * spends what is left of today, reserve included.
    */
   const blocker = (() => {
     if (!subject.trim()) return 'Add a subject.';
@@ -128,12 +136,15 @@ export default function BulkComposeModal({ mailboxAddress, onClose, onStarted })
         `${incomplete.length === 1 ? 'is' : 'are'} missing merge values.`;
     }
     if (pendingSchedule && scheduling && count > scheduling.remaining) {
-      return `Scheduling ${count} needs ${count} of today's slots, and ${scheduling.remaining} ` +
-        `of ${scheduling.limit} are left.`;
+      return `Scheduling ${count} needs ${count} slots on ${scheduling.day}, and ` +
+        `${scheduling.remaining} of ${scheduling.limit} are left that day.`;
     }
     if (!pendingSchedule && quota && count > quota.remaining) {
-      return `Sending ${count} needs ${count} of today's Resend allowance, and ` +
-        `${quota.remaining} of ${quota.limit} are left.`;
+      const committed = quota.scheduled > 0
+        ? ` ${quota.scheduled} is already committed to mail scheduled for today.`
+        : '';
+      return `Sending ${count} now needs ${count} of today's Resend allowance, and ` +
+        `${quota.remaining} of ${quota.limit} are left.${committed}`;
     }
     return null;
   })();
@@ -321,7 +332,8 @@ export default function BulkComposeModal({ mailboxAddress, onClose, onStarted })
                 </button>
                 {scheduling && (
                   <span className="text-xs text-slate-500">
-                    {scheduling.remaining} of {scheduling.limit} slots left today, resets at{' '}
+                    {scheduling.remaining} of {scheduling.limit} slots left for{' '}
+                    {scheduleDay ? scheduling.day : 'today'}, resets at{' '}
                     {formatResetTime(scheduling.resetsAt)}
                   </span>
                 )}
