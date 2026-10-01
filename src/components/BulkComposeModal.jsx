@@ -121,9 +121,12 @@ export default function BulkComposeModal({ mailboxAddress, onClose, onStarted })
 
   /*
    * Why a send would be refused, worked out here rather than discovered by the
-   * server. Scheduling spends a slot per recipient, and an immediate send has to
-   * fit in what is left of the plan's day — both are knowable before anyone
-   * presses anything.
+   * server.
+   *
+   * The two cases charge different allowances. Scheduling spends slots on the
+   * delivery day, so a long list is measured against that date's budget — which
+   * is what lets a week of mail be laid out in one sitting. An immediate send
+   * spends what is left of today, reserve included.
    */
   const blocker = (() => {
     if (!subject.trim()) return 'Add a subject.';
@@ -137,8 +140,11 @@ export default function BulkComposeModal({ mailboxAddress, onClose, onStarted })
         `${scheduling.remaining} of ${scheduling.limit} are left that day.`;
     }
     if (!pendingSchedule && quota && count > quota.remaining) {
-      return `Sending ${count} needs ${count} of today's Resend allowance, and ` +
-        `${quota.remaining} of ${quota.limit} are left.`;
+      const committed = quota.scheduled > 0
+        ? ` ${quota.scheduled} is already committed to mail scheduled for today.`
+        : '';
+      return `Sending ${count} now needs ${count} of today's Resend allowance, and ` +
+        `${quota.remaining} of ${quota.limit} are left.${committed}`;
     }
     return null;
   })();
